@@ -6,9 +6,9 @@ import (
 )
 
 type Phonebook struct {
-	ID    int
-	Name  string
-	Phone string
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
 }
 
 func main() {
