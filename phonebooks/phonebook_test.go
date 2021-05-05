@@ -31,12 +31,23 @@ func TestGetPhonebookHandler(t *testing.T) {
 			path := fmt.Sprintf("/api/phonebooks/%s", c)
 			r := httptest.NewRequest("GET", path, nil)
 			w := httptest.NewRecorder()
-			phonebooks.CreatePhonebookHandler(w, r)
+			phonebooks.GetPhonebookHandler(w, r)
 			rw := w.Result()
 			defer rw.Body.Close()
 			if rw.StatusCode != http.StatusOK {
 				t.Fatalf("unexpected status code: %d", rw.StatusCode)
 			}
 		})
+	}
+}
+
+func TestCreateHandler(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/api/phonebooks", nil)
+	phonebooks.CreateHandler(w, r)
+	rw := w.Result()
+	defer rw.Body.Close()
+	if rw.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code: %d", rw.StatusCode)
 	}
 }
