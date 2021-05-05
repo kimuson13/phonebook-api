@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type Phonebook struct {
@@ -20,7 +22,7 @@ func Run() {
 	books = append(books, Phonebook{ID: 1, Name: "kimu1", Phone: "09012345678"})
 	books = append(books, Phonebook{ID: 2, Name: "kimu2", Phone: "08012345678"})
 
-	r := http.NewServeMux()
+	r := mux.NewRouter()
 	r.HandleFunc("/api/phonebooks", GetPhonebooksHandler)
 	r.HandleFunc("/api/phonebooks/{id}", GetPhonebookHandler)
 	r.HandleFunc("/api/phonebooks/create", CreatePhonebookHandler)
