@@ -112,9 +112,71 @@ func CreateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	params := mux.Vars(r)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	for i, pbook := range Pbooks {
+		if pbook.ID == params["id"] {
+			Pbooks = append(Pbooks[:i], Pbooks[i+1:]...)
+			var p Phonebook
+			_ = json.NewDecoder(r.Body).Decode(&p)
+			p.ID = params["id"]
+			Pbooks = append(Pbooks, p)
+			if err := enc.Encode(p); err != nil {
+				log.Print(err)
+				http.Error(w, "encode error", http.StatusInternalServerError)
+			}
+
+			str := buf.String()
+			_, err := fmt.Fprint(w, str)
+			if err != nil {
+				log.Print(err)
+				http.Error(w, "print error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+	}
+
+	if err := enc.Encode(&Phonebook{}); err != nil {
+		log.Print(err)
+		http.Error(w, "encode error", http.StatusInternalServerError)
+	}
+
+	str := buf.String()
+	_, err := fmt.Fprint(w, str)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, "print error", http.StatusInternalServerError)
+	}
 }
 
 func DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
+	params := mux.Vars(r)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	for i, pbook := range Pbooks {
+		if pbook.ID == params["id"] {
+			Pbooks = append(Pbooks[:i], Pbooks[i+1:]...)
+			break
+		}
+	}
+
+	if err := enc.Encode(&Phonebook{}); err != nil {
+		log.Print(err)
+		http.Error(w, "encode error", http.StatusInternalServerError)
+	}
+
+	str := buf.String()
+	_, err := fmt.Fprint(w, str)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, "print error", http.StatusInternalServerError)
+	}
 }

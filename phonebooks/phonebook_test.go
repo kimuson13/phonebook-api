@@ -1,7 +1,6 @@
 package phonebooks_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,45 +8,52 @@ import (
 	"github.com/kimuson13/phonebook-api/phonebooks"
 )
 
-func TestGetPhonebooksHandler(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/api/phonebooks", nil)
-	phonebooks.GetPhonebooksHandler(w, r)
-	rw := w.Result()
-	defer rw.Body.Close()
-	if rw.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected status code: %d", rw.StatusCode)
-	}
-}
+var normalurl = "/api/phonebooks"
+var idurl = "/api/phonebooks/1"
 
-func TestGetPhonebookHandler(t *testing.T) {
-	cases := map[string]string{
-		"id=1": "1",
-		"id=2": "2",
+func TestAllHandlers_RespIsOk(t *testing.T) {
+	cases := map[string]struct {
+		method  string
+		url     string
+		handler func(w http.ResponseWriter, r *http.Request)
+	}{
+		"getall": {
+			method:  "GET",
+			url:     normalurl,
+			handler: phonebooks.GetPhonebooksHandler,
+		},
+		"getid": {
+			method:  "GET",
+			url:     idurl,
+			handler: phonebooks.GetPhonebookHandler,
+		},
+		"create": {
+			method:  "POST",
+			url:     normalurl,
+			handler: phonebooks.CreateHandler,
+		},
+		"update": {
+			method:  "PUT",
+			url:     idurl,
+			handler: phonebooks.UpdateHandler,
+		},
+		"delete": {
+			method:  "DELETE",
+			url:     idurl,
+			handler: phonebooks.DeleteHandler,
+		},
 	}
 	for n, c := range cases {
+		c := c
 		t.Run(n, func(t *testing.T) {
-			c := c
-			path := fmt.Sprintf("/api/phonebooks/%s", c)
-			r := httptest.NewRequest("GET", path, nil)
 			w := httptest.NewRecorder()
-			phonebooks.GetPhonebookHandler(w, r)
+			r := httptest.NewRequest(c.method, c.url, nil)
+			c.handler(w, r)
 			rw := w.Result()
 			defer rw.Body.Close()
 			if rw.StatusCode != http.StatusOK {
 				t.Fatalf("unexpected status code: %d", rw.StatusCode)
 			}
 		})
-	}
-}
-
-func TestCreateHandler(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/api/phonebooks", nil)
-	phonebooks.CreateHandler(w, r)
-	rw := w.Result()
-	defer rw.Body.Close()
-	if rw.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected status code: %d", rw.StatusCode)
 	}
 }
