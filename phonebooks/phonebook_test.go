@@ -2,22 +2,19 @@ package phonebooks_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/kimuson13/phonebook-api/phonebooks"
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 func TestGetPhonebooksHandler(t *testing.T) {
-	cleanfunc := createDBForTest(t)
-	defer cleanfunc()
-
 	req, err := http.NewRequest("GET", "/api/phonebooks", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -33,9 +30,6 @@ func TestGetPhonebooksHandler(t *testing.T) {
 }
 
 func TestGetPhonebookHandler(t *testing.T) {
-	cleanfunc := createDBForTest(t)
-	defer cleanfunc()
-
 	req, err := http.NewRequest("GET", "/api/phonebooks/1", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -52,8 +46,8 @@ func TestGetPhonebookHandler(t *testing.T) {
 }
 
 func TestCreateHandler(t *testing.T) {
-	cleanfunc := createDBForTest(t)
-	defer cleanfunc()
+	_, closefunc := createDBForTest(t)
+	defer closefunc()
 
 	p := phonebooks.Phonebook{Name: "test1", Phone: "09012334567"}
 	var buf bytes.Buffer
@@ -76,8 +70,8 @@ func TestCreateHandler(t *testing.T) {
 }
 
 func TestUpdateHandler(t *testing.T) {
-	cleanfunc := createDBForTest(t)
-	defer cleanfunc()
+	_, closefunc := createDBForTest(t)
+	defer closefunc()
 
 	p := phonebooks.Phonebook{Name: "test1", Phone: "09012334567"}
 	var buf bytes.Buffer
@@ -101,8 +95,8 @@ func TestUpdateHandler(t *testing.T) {
 }
 
 func TestDeleteHandler(t *testing.T) {
-	cleanfunc := createDBForTest(t)
-	defer cleanfunc()
+	_, closefunc := createDBForTest(t)
+	defer closefunc()
 
 	req, err := http.NewRequest("DELETE", "/api/phonebooks/1", nil)
 	if err != nil {
@@ -119,18 +113,16 @@ func TestDeleteHandler(t *testing.T) {
 	}
 }
 
-func createDBForTest(t *testing.T) func() {
+func createDBForTest(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
-	db, closefunc, err := phonebooks.ConnectSQL("phonebook.db")
+	db, closefunc, err := phonebooks.ConnectSQL()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closefunc()
 
-	testRecoed := &phonebooks.Phonebook{Name: "test", Phone: "09087878787"}
+	testRecoed := phonebooks.Phonebook{Name: "test", Phone: "09087878787"}
 	if _, err := phonebooks.AddRecords(db, testRecoed); err != nil {
 		t.Fatal(err)
 	}
-
-	return func() { os.RemoveAll("phonebook.db") }
+	return db, closefunc
 }

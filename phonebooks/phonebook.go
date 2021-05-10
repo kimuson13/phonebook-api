@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gorilla/mux"
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 type Phonebook struct {
@@ -32,17 +33,19 @@ var (
 	status500 int = http.StatusInternalServerError
 )
 
-func ConnectSQL(name string) (*sql.DB, func(), error) {
-	db, err := sql.Open("sqlite", name)
+func ConnectSQL() (*sql.DB, func(), error) {
+	s := fmt.Sprintf("host=%v port=%v user=%v password=%v dbname=%v sslmode=%v",
+		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_USER"), os.Getenv("DB_PASS"), os.Getenv("DB_NAME"), os.Getenv("DB_MODE"))
+	db, err := sql.Open("postgres", s)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	const sql = `
-	CREATE TABLE IF NOT EXISTS user (
-		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		phone TEXT NOT NULL
+	CREATE TABLE IF NOT EXISTS users (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(12) NOT NULL,
+		phone VARCHAR(12) NOT NULL
 	);
 	`
 
@@ -52,19 +55,14 @@ func ConnectSQL(name string) (*sql.DB, func(), error) {
 
 	return db, func() {
 		if err := db.Close(); err != nil {
-			log.Printf("can not close %v", name)
+			log.Print("can not close database")
 		}
 	}, nil
 }
 
-func AddRecords(db *sql.DB, p *Phonebook) (int, error) {
-	const sql = "INSERT INTO user(name, phone) values (?,?)"
-	r, err := db.Exec(sql, p.Name, p.Phone)
-	if err != nil {
-		return 0, err
-	}
-
-	id, err := r.LastInsertId()
+func AddRecords(db *sql.DB, p Phonebook) (int, error) {
+	var id int
+	err := db.QueryRow("INSERT INTO users(name, phone) values ($1, $2) RETURNING id", p.Name, p.Phone).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -87,14 +85,13 @@ func GetPhonebooksHandler(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 
-	db, closefunc, err := ConnectSQL("phonebook.db")
+	db, closefunc, err := ConnectSQL()
 	if err != nil {
 		log.Print(err)
 		http.Error(w, openFail, status500)
 	}
 	defer closefunc()
-
-	rows, err := db.Query("SELECT * FROM user")
+	rows, err := db.Query("SELECT * FROM users")
 	if err != nil {
 		log.Print(err)
 		http.Error(w, selectFail, status500)
@@ -127,20 +124,14 @@ func GetPhonebookHandler(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 
-	db, closefunc, err := ConnectSQL("phonebook.db")
+	db, closefunc, err := ConnectSQL()
 	if err != nil {
 		log.Print(err)
 		http.Error(w, openFail, status500)
 	}
 	defer closefunc()
 
-	selectedID, err := strconv.Atoi(params["id"])
-	if err != nil {
-		log.Print(err)
-		http.Error(w, encodeFail, status500)
-	}
-
-	rows, err := db.Query("SELECT * FROM user WHERE id = ?", selectedID)
+	rows, err := db.Query("SELECT * FROM users WHERE id = " + params["id"])
 	for rows.Next() {
 		var p Phonebook
 		if err := rows.Scan(&p.ID, &p.Name, &p.Phone); err != nil {
@@ -164,7 +155,7 @@ func GetPhonebookHandler(w http.ResponseWriter, r *http.Request) {
 func CreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	db, closefunc, err := ConnectSQL("phonebook.db")
+	db, closefunc, err := ConnectSQL()
 	if err != nil {
 		log.Print(err)
 		http.Error(w, openFail, status500)
@@ -180,14 +171,14 @@ func CreateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, decodeFail, status500)
 	}
 
-	id, err := AddRecords(db, &p)
+	id, err := AddRecords(db, p)
 	if err != nil {
 		log.Print(err)
 		http.Error(w, addFail, status500)
 	}
 
 	enc := json.NewEncoder(&buf)
-	rows, err := db.Query("SELECT * FROM user WHERE id = ?", id)
+	rows, err := db.Query("SELECT * FROM users WHERE id = " + strconv.Itoa(id))
 	for rows.Next() {
 		if err := rows.Scan(&p.ID, &p.Name, &p.Phone); err != nil {
 			log.Print(err)
@@ -211,7 +202,7 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	db, closefunc, err := ConnectSQL("phonebook.db")
+	db, closefunc, err := ConnectSQL()
 	if err != nil {
 		log.Print(err)
 		http.Error(w, openFail, status500)
@@ -224,20 +215,14 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, decodeFail, status500)
 	}
 
-	selectedID, err := strconv.Atoi(params["id"])
-	if err != nil {
-		log.Print(err)
-		http.Error(w, encodeFail, status500)
-	}
-
-	if _, err := db.Exec("UPDATE user SET (name, phone) = (?,?) WHERE id = ?", p.Name, p.Phone, selectedID); err != nil {
+	if _, err := db.Exec("UPDATE users SET (name, phone) = ($1, $2) WHERE id = "+params["id"], p.Name, p.Phone); err != nil {
 		log.Print(err)
 		http.Error(w, updateFail, status500)
 	}
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
-	rows, err := db.Query("SELECT * FROM user WHERE id = ?", selectedID)
+	rows, err := db.Query("SELECT * FROM users WHERE id = " + params["id"])
 	for rows.Next() {
 		var p Phonebook
 		if err := rows.Scan(&p.ID, &p.Name, &p.Phone); err != nil {
@@ -262,22 +247,17 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	db, closefunc, err := ConnectSQL("phonebook.db")
+	db, closefunc, err := ConnectSQL()
 	if err != nil {
 		log.Print(err)
 		http.Error(w, openFail, status500)
 	}
 	defer closefunc()
 
-	selectedID, err := strconv.Atoi(params["id"])
-	if err != nil {
-		log.Print(err)
-		http.Error(w, encodeFail, status500)
-	}
-
-	if _, err := db.Exec("DELETE FROM user WHERE id = ?", selectedID); err != nil {
+	if _, err := db.Exec("DELETE FROM users WHERE id = " + params["id"]); err != nil {
 		log.Print(err)
 		http.Error(w, "can not delete the record", status500)
+		return
 	}
 
 	var buf bytes.Buffer
