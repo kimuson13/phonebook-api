@@ -6,10 +6,10 @@
 - データの編集
 - データの削除
 
-## demo
+## demo(windows10)
 ### 電話帳データの獲得
 #### コマンド
-`curl http://localhost:8080/api/phonebooks | jq .`
+`curl http://localhost:8080/api/phonebooks | jq-win64 .`
 #### 結果
 ```
 {
@@ -25,7 +25,7 @@
 ```
 ### データのIDによる絞り込み
 #### コマンド
-`curl http://localhost:8080/api/phonebooks/2 | jq .`
+`curl http://localhost:8080/api/phonebooks/2 | jq-win64 .`
 #### 結果
 ```
 {
@@ -36,7 +36,7 @@
 ```
 ### データの追加
 #### コマンド
-`curl -X POST -d "{\"name\":\"add\",\"phone\":\"09087876565\"}" "http://localhost:8080/api/phonebooks" | jq .`
+`curl -X POST -d "{\"name\":\"add\",\"phone\":\"09087876565\"}" "http://localhost:8080/api/phonebooks" | jq-win64 .`
 #### 結果
 ```
 {
@@ -47,7 +47,7 @@
 ```
 ### データの編集
 #### コマンド
-`curl -X PUT -d "{\"name\":\"put\",\"phone\":\"08012345678\"}" "http://localhost:8080/api/phonebooks/1" | jq .`
+`curl -X PUT -d "{\"name\":\"put\",\"phone\":\"08012345678\"}" "http://localhost:8080/api/phonebooks/1" | jq-win64 .`
 #### 結果
 ```
 {
@@ -58,7 +58,7 @@
 ```
 ### データの削除
 #### コマンド
-`curl -X DELETE http://localhost:8080/api/phonebooks/1 | jq .`
+`curl -X DELETE http://localhost:8080/api/phonebooks/1 | jq-win64 .`
 #### 結果
 ```
 {
