@@ -22,12 +22,12 @@ type Phonebook struct {
 
 var (
 	addFail    string = "can not add record to body"
-	openFail   string = "can not open the sql"
-	selectFail string = "can not select the table"
-	scanFail   string = "can not scan the record selected"
-	encodeFail string = "can not encode this records"
-	printFail  string = "can not print this records"
 	decodeFail string = "can not decode body you typed"
+	encodeFail string = "can not encode this records"
+	openFail   string = "can not open the sql"
+	printFail  string = "can not print this records"
+	scanFail   string = "can not scan the record selected"
+	selectFail string = "can not select the table"
 	updateFail string = "can not update the record you selected"
 
 	status500 int = http.StatusInternalServerError
@@ -91,6 +91,7 @@ func GetPhonebooksHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, openFail, status500)
 	}
 	defer closefunc()
+
 	rows, err := db.Query("SELECT * FROM users")
 	if err != nil {
 		log.Print(err)

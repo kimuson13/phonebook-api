@@ -6,15 +6,20 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/kimuson13/phonebook-api/phonebooks"
 	_ "github.com/lib/pq"
 )
 
 func TestGetPhonebooksHandler(t *testing.T) {
+	db, id, closefunc := setDBForTest(t)
+	defer closefunc()
+
 	req, err := http.NewRequest("GET", "/api/phonebooks", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -27,10 +32,18 @@ func TestGetPhonebooksHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
+
+	if err := deleteRecord(db, id, t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestGetPhonebookHandler(t *testing.T) {
-	req, err := http.NewRequest("GET", "/api/phonebooks/1", nil)
+	db, id, closefunc := setDBForTest(t)
+	defer closefunc()
+
+	strID := strconv.Itoa(id)
+	req, err := http.NewRequest("GET", "/api/phonebooks/"+strID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,10 +56,14 @@ func TestGetPhonebookHandler(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("handler should have failed on routeVariavle 1: got %v want %v", rr.Code, http.StatusOK)
 	}
+
+	if err := deleteRecord(db, id, t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCreateHandler(t *testing.T) {
-	_, closefunc := createDBForTest(t)
+	db, id, closefunc := setDBForTest(t)
 	defer closefunc()
 
 	p := phonebooks.Phonebook{Name: "test1", Phone: "09012334567"}
@@ -67,10 +84,23 @@ func TestCreateHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
+
+	var createID int
+	if err := db.QueryRow("SELECT id FROM users WHERE name = $1 AND phone = $2", p.Name, p.Phone).Scan(&createID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deleteRecord(db, id, t); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deleteRecord(db, createID, t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestUpdateHandler(t *testing.T) {
-	_, closefunc := createDBForTest(t)
+	db, id, closefunc := setDBForTest(t)
 	defer closefunc()
 
 	p := phonebooks.Phonebook{Name: "test1", Phone: "09012334567"}
@@ -92,13 +122,18 @@ func TestUpdateHandler(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("handler should have failed on routeVariavle 1: got %v want %v", rr.Code, http.StatusOK)
 	}
+
+	if err := deleteRecord(db, id, t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestDeleteHandler(t *testing.T) {
-	_, closefunc := createDBForTest(t)
+	_, id, closefunc := setDBForTest(t)
 	defer closefunc()
 
-	req, err := http.NewRequest("DELETE", "/api/phonebooks/1", nil)
+	strID := strconv.Itoa(id)
+	req, err := http.NewRequest("DELETE", "/api/phonebooks/"+strID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,16 +148,29 @@ func TestDeleteHandler(t *testing.T) {
 	}
 }
 
-func createDBForTest(t *testing.T) (*sql.DB, func()) {
+func setDBForTest(t *testing.T) (*sql.DB, int, func()) {
 	t.Helper()
+	if err := godotenv.Load("_testdata/test.env"); err != nil {
+		t.Fatal(err)
+	}
 	db, closefunc, err := phonebooks.ConnectSQL()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	testRecoed := phonebooks.Phonebook{Name: "test", Phone: "09087878787"}
-	if _, err := phonebooks.AddRecords(db, testRecoed); err != nil {
+	id, err := phonebooks.AddRecords(db, testRecoed)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return db, closefunc
+	return db, id, closefunc
+}
+
+func deleteRecord(db *sql.DB, id int, t *testing.T) error {
+	t.Helper()
+	if _, err := db.Exec("DELETE FROM users WHERE id = $1", id); err != nil {
+		return err
+	}
+
+	return nil
 }
